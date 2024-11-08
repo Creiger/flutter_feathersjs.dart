@@ -1,5 +1,6 @@
 // Default access token storage key name
 const String FEATHERSJS_ACCESS_TOKEN = "FEATHERSJS_ACCESS_TOKEN";
+const String FEATHERSJS_REFRESH_TOKEN = "FEATHERSJS_REFRESH_TOKEN";
 // Access token storage key for standalone rest client
 const String FEATHERSJS_REST_ACCESS_TOKEN = "FEATHERSJS_REST_ACCESS_TOKEN";
 // Access token storage key name for standalone socketio client

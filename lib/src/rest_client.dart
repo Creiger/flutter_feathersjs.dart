@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' as Foundation;
-
 import 'config/constants.dart';
 import 'config/storage.dart';
 import 'featherjs_client_base.dart';
@@ -15,7 +14,7 @@ import 'config/helper.dart';
 class RestClient extends FlutterFeathersjsBase {
   ///Dio as http client
   late Dio dio;
-  var jsonStorage = JsonStorage();
+  var storage = Storage();
 
   //Using singleton to ensure we use the same instance of it accross our app
   static final RestClient _restClient = RestClient._internal();
@@ -38,7 +37,7 @@ class RestClient extends FlutterFeathersjsBase {
         .interceptors
         .add(InterceptorsWrapper(onRequest: (options, handler) async {
           // Setting on every request the Bearer Token in the header
-          var oldToken = await jsonStorage.getAccessToken();
+          var oldToken = await storage.getAccessToken();
 
           // This is necessary to send on every request the Bearer token to be authenticated
           this.dio.options.headers["Authorization"] = "Bearer $oldToken";
@@ -70,7 +69,7 @@ class RestClient extends FlutterFeathersjsBase {
     bool isReauthenticate = false;
 
     //Getting the early stored rest access token and send the request by using it
-    var oldToken = await jsonStorage.getAccessToken();
+    var oldToken = await storage.getAccessToken();
 
     ///If an oldToken exist really, try to chect if it is still validated
     this.dio.options.headers["Authorization"] = "Bearer $oldToken";
@@ -78,7 +77,9 @@ class RestClient extends FlutterFeathersjsBase {
       // Try to retrieve the service which normaly don't accept anonimous user
       var response =
           await this.dio.get("/$serviceName", queryParameters: {"\$limit": 1});
-
+      if (response.data['refreshToken']) {
+        await storage.saveRefreshToken(response.data['refreshToken']);
+      }
       if (!Foundation.kReleaseMode) {
         print(response);
       }
@@ -160,8 +161,9 @@ class RestClient extends FlutterFeathersjsBase {
 
       if (response.data['accessToken'] != null) {
         // Case when the world is perfect: no error
-        jsonStorage.saveAccessToken(response.data['accessToken'],
+        storage.saveAccessToken(response.data['accessToken'],
             client: "rest");
+        storage.saveRefreshToken(response.data['refreshToken']);
       } else {
         featherJsError = new FeatherJsError(
             type: FeatherJsErrorType.IS_UNKNOWN_ERROR,

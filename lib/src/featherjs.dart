@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_feathersjs/src/rest_client.dart';
 import 'package:flutter_feathersjs/src/scketio_client.dart';
@@ -8,6 +10,7 @@ import 'package:flutter_feathersjs/src/standalone_socketio_client.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'config/constants.dart';
 import 'config/storage.dart';
+
 
 /// [FlutterFeatherJs] allow you to communicate with your feathers js server
 ///
@@ -57,6 +60,7 @@ class FlutterFeathersjs {
 
   ///Initialize both rest and scoketio client
   init({required String baseUrl, Map<String, dynamic>? extraHeaders}) {
+    print("Initializing FlutterFeathersjs");
     rest = new RestClient()..init(baseUrl: baseUrl, extraHeaders: extraHeaders);
 
     scketio = new SocketioClient()..init(baseUrl: baseUrl);
@@ -350,13 +354,14 @@ class FlutterFeathersjs {
     }
   }
 
-  /// Return authenticated user from secure storage
-  ///
-  /// If no user is authenticated, return {}
-  Future<dynamic> user() async {
-    /// JsonBridge
-    var jsonStorage = JsonStorage();
-    return await jsonStorage.getUser();
+  Future<bool> hasRefreshToken() async {
+    var storage = Storage();
+    return await storage.getRefreshToken() != null;
+  }
+
+  Future<void> deleteTokens() async {
+    var storage = Storage();
+    await storage.deleteTokens();
   }
 
    /// Listen to On [` updated | patched | created | removed `] `serviceName`

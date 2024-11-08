@@ -19,7 +19,7 @@ class SocketioClient extends FlutterFeathersjsBase {
   // Event bus
   EventBus eventBus = EventBus(sync: true);
 
-  var jsonStorage = JsonStorage();
+  var storage = Storage();
 
   //Using singleton
   static final SocketioClient _socketioClient = SocketioClient._internal();
@@ -92,10 +92,9 @@ class SocketioClient extends FlutterFeathersjsBase {
   /// use instead the global `flutterFeathersjs.authenticate({...})`
   ///
   Future<dynamic> authWithJWT() async {
-    String? token = await jsonStorage.getAccessToken();
+    String? token = await storage.getAccessToken();
     Completer asyncTask = Completer<dynamic>();
     FeatherJsError? featherJsError;
-    bool isReauthenticate = false;
 
     _socket.emitWithAck('create', [
       'authentication',
@@ -106,7 +105,6 @@ class SocketioClient extends FlutterFeathersjsBase {
     ], ack: (dataResponse) {
       if (!Foundation.kReleaseMode) {
         print("Receive response from server on JWT request");
-        print(dataResponse);
       }
 
       //Check whether auth is OK
@@ -114,7 +112,6 @@ class SocketioClient extends FlutterFeathersjsBase {
         if (!Foundation.kReleaseMode) {
           print("Authentication process is ok with JWT");
         }
-        isReauthenticate = true;
         //Every emit or on will be authed
         this._socket.io.options!['extraHeaders'] = {
           'Authorization': "Bearer $token"
@@ -131,7 +128,7 @@ class SocketioClient extends FlutterFeathersjsBase {
         asyncTask.completeError(featherJsError!); //Complete with error
       } else {
         // Complete with success
-        asyncTask.complete(isReauthenticate);
+        asyncTask.complete(dataResponse[1]["user"]);
       }
     });
 

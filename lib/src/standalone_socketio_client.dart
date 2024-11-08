@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:flutter/foundation.dart' as Foundation;
 import 'package:flutter_feathersjs/src/config/helper.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -48,13 +49,13 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
   // Event bus
   EventBus eventBus = EventBus(sync: true);
 
-  var jsonStorage = JsonStorage();
+  var storage = Storage();
 
   FlutterFeathersjsSocketio(this._socket) {
     // Set headers for socketio authorization
     // Setting on every request the Bearer Token in the header
     () async {
-      String? token = await jsonStorage.getAccessToken(client: "socketio");
+      String? token = await storage.getAccessToken(client: "socketio");
       if (token != null) {
         _socket.io.options!["extraHeaders"] = {
           'Authorization': 'Bearer $token',
@@ -101,6 +102,11 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
       _socket.on('reconnect_failed', (_) => print("A reconnection failed"));
       _socket.on('reconnecting', (_) => print("Reconnecting..."));
     }
+    Timer.periodic(Duration(seconds: 3600), (Timer timer) {
+      if (_socket.connected) {
+        checkReAuthentication();
+      }
+    });
   }
 
   FlutterFeathersjsSocketio service(String serviceName) {
@@ -136,9 +142,7 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
     ], ack: (dataResponse) {
       if (!Foundation.kReleaseMode) {
         print("Receive response from server on socketio auth");
-        print(dataResponse);
       }
-
       //Check whether auth is OK response.data["user"]
       if (dataResponse is List) {
         if (!Foundation.kReleaseMode) {
@@ -148,6 +152,9 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
         this._socket.io.options!['extraHeaders'] = {
           'Authorization': "Bearer ${dataResponse[1]["accessToken"]}"
         };
+        storage.saveAccessToken(dataResponse[1]["accessToken"],
+            client: "socketio");
+        storage.saveRefreshToken(dataResponse[1]["refreshToken"]);
       } else {
         // On error
         if (!Foundation.kReleaseMode) {
@@ -167,6 +174,64 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
     return asyncTask.future;
   }
 
+  bool isTokenExpired(String? token) {
+    if (token == null) {
+      return true;
+    }
+    final jwt = JWT.decode(token);
+    final exp = jwt.payload['exp'] - 7200;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    return now >= exp;
+  }
+
+  Future<void> checkReAuthentication() async {
+    var oldToken = await storage.getAccessToken();
+    var refreshToken = await storage.getRefreshToken();
+    if (isTokenExpired(oldToken) && refreshToken != null) {
+      await this.reAuthenticate();
+    }
+  }
+
+  Future<dynamic> refreshAccessToken({String serviceName = "refresh-tokens"}) async {
+    Completer asyncTask = Completer<dynamic>();
+    FeatherJsError? featherJsError;
+    var oldToken = await storage.getAccessToken();
+    var refreshToken = await storage.getRefreshToken();
+    if (isTokenExpired(oldToken) && refreshToken != null) {
+      final jwt = JWT.decode(refreshToken);
+      final userId = jwt.payload['sub'];
+      _socket.emitWithAck('create', [
+        serviceName,
+        <String, dynamic>{
+          "refreshToken": refreshToken,
+          "_id": userId
+        }
+      ], ack: (dataResponse) async {
+        if (dataResponse is List) {
+          if (dataResponse[1]['accessToken'] != null) {
+            await storage.saveAccessToken(dataResponse[1]['accessToken'], client: "rest");
+          } else {
+            featherJsError = new FeatherJsError(
+                type: FeatherJsErrorType.IS_UNKNOWN_ERROR,
+                error: dataResponse[1]["message"]);
+          }
+        } else {
+          featherJsError = new FeatherJsError(
+              type: FeatherJsErrorType.IS_UNKNOWN_ERROR,
+              error: dataResponse);
+        }
+        if (featherJsError != null) {
+          asyncTask.completeError(featherJsError!);
+        } else {
+          asyncTask.complete(true);
+        }
+      });
+    } else {
+      asyncTask.complete(true);
+    }
+    return asyncTask.future;
+  }
+
   ///
   /// Authenticate the user with realtime connection
   ///
@@ -178,10 +243,10 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
   /// use instead the global `flutterFeathersjs.authenticate({...})`
   ///
   Future<dynamic> reAuthenticate() async {
-    String? token = await jsonStorage.getAccessToken(client: "socketio");
+    await refreshAccessToken();
+    String? token = await storage.getAccessToken(client: "socketio");
     Completer asyncTask = Completer<dynamic>();
     FeatherJsError? featherJsError;
-    bool isReauthenticate = false;
 
     _socket.emitWithAck('create', [
       'authentication',
@@ -192,7 +257,6 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
     ], ack: (dataResponse) {
       if (!Foundation.kReleaseMode) {
         print("Receive response from server on JWT request");
-        print(dataResponse);
       }
 
       //Check whether auth is OK
@@ -200,7 +264,6 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
         if (!Foundation.kReleaseMode) {
           print("Authentication process is ok with JWT");
         }
-        isReauthenticate = true;
         //Every emit or on will be authed
         this._socket.io.options!['extraHeaders'] = {
           'Authorization': "Bearer $token"
@@ -217,7 +280,7 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
         asyncTask.completeError(featherJsError!); //Complete with error
       } else {
         // Complete with success
-        asyncTask.complete(isReauthenticate);
+        asyncTask.complete(dataResponse[1]["user"]);
       }
     });
 
