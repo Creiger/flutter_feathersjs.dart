@@ -78,7 +78,7 @@ class RestClient extends FlutterFeathersjsBase {
       var response =
           await this.dio.get("/$serviceName", queryParameters: {"\$limit": 1});
       if (response.data['refreshToken']) {
-        await storage.saveRefreshToken(response.data['refreshToken']);
+        await storage.saveRefreshToken(response.data['refreshToken'] ?? '');
       }
       if (!Foundation.kReleaseMode) {
         print(response);
@@ -163,7 +163,7 @@ class RestClient extends FlutterFeathersjsBase {
         // Case when the world is perfect: no error
         storage.saveAccessToken(response.data['accessToken'],
             client: "rest");
-        storage.saveRefreshToken(response.data['refreshToken']);
+        storage.saveRefreshToken(response.data['refreshToken'] ?? '');
       } else {
         featherJsError = new FeatherJsError(
             type: FeatherJsErrorType.IS_UNKNOWN_ERROR,

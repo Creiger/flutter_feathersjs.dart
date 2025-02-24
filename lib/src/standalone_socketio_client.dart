@@ -154,7 +154,7 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
         };
         storage.saveAccessToken(dataResponse[1]["accessToken"],
             client: "socketio");
-        storage.saveRefreshToken(dataResponse[1]["refreshToken"]);
+        storage.saveRefreshToken(dataResponse[1]["refreshToken"] ?? '');
       } else {
         // On error
         if (!Foundation.kReleaseMode) {
@@ -388,9 +388,9 @@ class FlutterFeathersjsSocketio extends FlutterFeathersjsClient {
   ///
   /// Use FeatherJsErrorType.{ERROR} to known what happen
   ///
-  Future<dynamic> patch(String objectId, Map<String, dynamic> data) {
+  Future<dynamic> patch(String objectId, Map<String, dynamic> data, Map<String, dynamic> params) {
     Completer asyncTask = Completer<dynamic>();
-    _socket.emitWithAck("patch", [serviceName, objectId, data],
+    _socket.emitWithAck("patch", [serviceName, objectId, data, params],
         ack: (response) {
       if (response is List) {
         asyncTask.complete(response[1]);

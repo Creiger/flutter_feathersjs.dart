@@ -16,10 +16,10 @@ class Storage {
   /// [client] is the standalone client name, if null, the accessToken will be saved in the default key
   ///
   Future<void> saveAccessToken(String accessToken, {String? client}) async {
-    await storage.write(key: FEATHERSJS_ACCESS_TOKEN, value: accessToken);
+    await storage.write(key: FEATHERSJS_ACCESS_TOKEN, value: accessToken ?? '');
   }
   Future<void> saveRefreshToken(String accessToken, {String? client}) async {
-    await storage.write(key: FEATHERSJS_REFRESH_TOKEN, value: accessToken);
+    await storage.write(key: FEATHERSJS_REFRESH_TOKEN, value: accessToken ?? '');
   }
 
   /// Get the early stored JWT for reAuth() purpose
