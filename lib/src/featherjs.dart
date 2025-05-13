@@ -354,6 +354,11 @@ class FlutterFeathersjs {
     }
   }
 
+  Future<String> getAccessToken() async {
+    var storage = Storage();
+    return await storage.getAccessToken() ?? '';
+  }
+
   Future<bool> hasRefreshToken() async {
     var storage = Storage();
     return await storage.getRefreshToken() != null;
