@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_feathersjs/src/rest_client.dart';
 import 'package:flutter_feathersjs/src/scketio_client.dart';
